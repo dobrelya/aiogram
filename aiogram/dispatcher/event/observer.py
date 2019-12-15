@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import functools
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -33,6 +34,7 @@ class EventObserver:
 
     def __init__(self) -> None:
         self.handlers: List[HandlerObject] = []
+        self._middlewares = []
 
     def register(self, callback: HandlerType, *filters: FilterType) -> HandlerType:
         """
@@ -56,9 +58,24 @@ class EventObserver:
             if result:
                 kwargs_copy.update(data)
                 try:
-                    yield await handler.call(*args, **kwargs_copy)
+                    yield await self.wrap_middlewares(handler.call, *args, **kwargs_copy)
                 except SkipHandler:
                     continue
+
+    async def wrap_middlewares(self, handler, *args, **kwargs):
+        for middleware in reversed(self._middlewares):
+            handler = functools.partial(middleware, handler)
+        return await handler(*args, **kwargs)
+
+    def middleware(self, middleware=None):
+        def decorator(func):
+            self._middlewares.append(func)
+            return func
+
+        if middleware is not None:
+            return decorator(middleware)
+
+        return decorator
 
     def __call__(self, *args: FilterType) -> Callable[[CallbackType], CallbackType]:
         """

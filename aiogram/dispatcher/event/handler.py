@@ -1,3 +1,4 @@
+import functools
 import inspect
 from dataclasses import dataclass, field
 from functools import partial
@@ -37,6 +38,12 @@ class CallableMixin:
         if self.awaitable:
             return await wrapped()
         return wrapped()
+
+    async def call_with_middlewares(self, middlewares, *args, **kwargs):
+        handler = self.call
+        for middleware in reversed(middlewares):
+            handler = functools.partial(middleware, handler)
+        return await handler(*args, **kwargs)
 
 
 @dataclass

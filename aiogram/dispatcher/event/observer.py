@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import functools
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -58,14 +57,11 @@ class EventObserver:
             if result:
                 kwargs_copy.update(data)
                 try:
-                    yield await self.wrap_middlewares(handler.call, *args, **kwargs_copy)
+                    yield await handler.call_with_middlewares(
+                        self._middlewares, *args, **kwargs_copy
+                    )
                 except SkipHandler:
                     continue
-
-    async def wrap_middlewares(self, handler, *args, **kwargs):
-        for middleware in reversed(self._middlewares):
-            handler = functools.partial(middleware, handler)
-        return await handler(*args, **kwargs)
 
     def middleware(self, middleware=None):
         def decorator(func):
